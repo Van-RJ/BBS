@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="utf-8">
+    <title>Web掲示板</title>
+    <link href="index.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@1.0.4/css/bulma.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.5.16/dist/vue.js"></script>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-analytics.js";
+        import { getDatabase, ref, set, onValue, push } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBNYdbI4eWb9OdyMvYgqr54LYhzwCXLIAQ",
+            authDomain: "bbs-1-f47b7.firebaseapp.com",
+            databaseURL: "https://bbs-1-f47b7-default-rtdb.firebaseio.com",
+            projectId: "bbs-1-f47b7",
+            storageBucket: "bbs-1-f47b7.firebasestorage.app",
+            messagingSenderId: "316613415500",
+            appId: "1:316613415500:web:a045380777acc9ce269ae9",
+            measurementId: "G-RXK34BDNSM"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+        const analytics = getAnalytics(app);
+
+        Vue.component('board-list', {
+            template: '<li class="board-list"><div class="board-list__upper"><div style="font-size: 0.75rem;">名前:{{name}}{{date}}</div></div><div style="font-size: 1.25rem;">{{message}}</div></li>',
+            props: ['name', 'message', 'date', 'id'],
+        })
+
+        Vue.component('board-form', {
+            template: '<div class="form-area">名前 : <input v-model="name"> <br><p class="help is-danger is-size-6" v-if="seen">※名前が入力されていません</p> </br>コメント: \
+    <textarea v-model="message"></textarea> </br><button class="button is-link" v-on:click="doAdd">書き込む</button></div>',
+            data: function () {
+                return {
+                    message: '',
+                    name: '',
+                    seen: true
+                }
+            },
+            watch: {
+                name(newVal) {
+                    this.seen = newVal.trim() === '';
+                }
+            },
+
+            methods: {
+                doAdd: function () {
+                    console.log('doAdd called:', this.name, this.message)
+                    this.$emit('input', this.name, this.message)
+                    this.message = ''
+                    this.name = ''
+                }
+            }
+        })
+
+        var board = new Vue({
+            el: '#board',
+            data: {
+                lists: []
+            },
+            created: function () {
+                var vue = this;
+                const starCountRef = ref(database, 'board');
+                onValue(starCountRef, (snapshot) => {
+                    vue.lists = snapshot.val();
+                    console.log(snapshot.val())
+                });
+            },
+            methods: {
+                doAdd: function (name, message) {
+                    console.log('parent doAdd called with:', name, message)
+                    var now = new Date();
+                    push(ref(database, 'board'), {
+                        name: name,
+                        message: message,
+                        date: now.getMonth() + 1 + '月' + now.getDate() + '日' + now.getHours() + '時' + now.getMinutes() + '分'
+                    })
+                    .then(() => console.log('push succeeded'))
+                    .catch(err => console.error('push failed:', err));
+                }
+            }
+        })
+    </script>
+</head>
+<body>
+    <div>
+        <section class="hero is-info" style="margin: 0; padding: 0;">
+            <div class="hero-body is-small" style="padding: 1rem;">
+              <h3 class="is-size-2" style="font-weight: bold;">お知らせ</h3>
+              <p class="is-size-4">・多言語対応する気は<span class="kyouchou">全く</span>ありません</p>
+              <p class="is-size-4">コメント以外の表示が右に寄ってるのは気のせいです</p>
+              <p class="is-size-4">・気が向いたらコメント入力の枠の高さの自動調節を実装します</p>
+              <a class="button" href="https://docs.google.com/forms/d/e/1FAIpQLSc6cAHVqRwCkcZQVLvIuNlqEyLPDVmtakVz0kvbIeHzbIQMSQ/viewform?usp=dialog">改善案のアンケート</a>
+            </div>
+          </section>
+          <div id="board">
+        <h1 class="board-title is-size-4 has-text-weight-bold">掲示板</h1>
+        <ul class="lists" style="list-style-type: none">
+            <board-list v-for="(list, key) in lists" :key="key" :name="list.name" :message="list.message"
+                :date="list.date">
+            </board-list>
+        </ul>
+        <board-form v-on:input="doAdd"></board-form>
+    </div>
+    </div>
+    <script src="index.js"></script>
+</body>
+</html>
