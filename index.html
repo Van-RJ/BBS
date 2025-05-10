@@ -136,7 +136,7 @@
 <body>
     <div id="board">
         <p v-if="!authResolved" class="has-text-grey">認証確認中...</p>
-        <div v-if="!authResolved && !user">
+        <div>
             <button @click="signInWithGoogle" class="button is-primary">Googleでログイン</button>
         </div>
         <div v-if="authResolved && user">
