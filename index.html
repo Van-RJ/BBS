@@ -70,25 +70,22 @@
             created: function () {
                 var vue = this;
 
-
-                const allowedEmails = ['ugokutenpdayo@gmail.com'];
-
-                onAuthStateChanged(auth, user => {
+                onAuthStateChanged(auth, async (user) => {
                     console.log('Auth state changed:', user);
                     vue.authResolved = true;
                     console.log('authResolved;', vue.authResolved);
 
                     if (user) {
                         console.log('User logged in:', user.email);
-                        vue.$set(vue, 'user', user);
-                        console.log('User data set:', vue.user);
-                    
+                        
+                        const allowedEmails = ['ugokutenpdayo@gmail.com', 'futo9999999@gmail.com'];
                         if (!allowedEmails.includes(user.email)) {
                             alert('許可されていないユーザーです。');
                             signOut(auth);
                             vue.user = null;
                             return;
                         }
+
                         vue.$set(vue, 'user', user);
                         console.log('User data set:', vue.user);
 
