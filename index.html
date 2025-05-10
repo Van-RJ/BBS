@@ -12,6 +12,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
         import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-analytics.js";
         import { getDatabase, ref, set, onValue, push } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-database.js";
+        import { getAuth, onAuthStateChanged, signOut, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBNYdbI4eWb9OdyMvYgqr54LYhzwCXLIAQ",
@@ -27,6 +28,7 @@
         const app = initializeApp(firebaseConfig);
         const database = getDatabase(app);
         const analytics = getAnalytics(app);
+        const auth = getAuth(app);
 
         Vue.component('board-list', {
             template: '<li class="board-list"><div class="board-list__upper"><div style="font-size: 0.75rem;">名前:{{name}}{{date}}</div></div><div style="font-size: 1.25rem;">{{message}}</div></li>',
@@ -61,15 +63,47 @@
         var board = new Vue({
             el: '#board',
             data: {
-                lists: []
+                lists: [],
+                user: null,
+                authResolved: false
             },
             created: function () {
                 var vue = this;
-                const starCountRef = ref(database, 'board');
-                onValue(starCountRef, (snapshot) => {
-                    vue.lists = snapshot.val();
-                    console.log(snapshot.val())
-                });
+
+
+                const allowedEmails = ['ugokutenpdayo@gmail.com'];
+
+                onAuthStateChanged(auth, user => {
+                    console.log('Auth state changed:', user);
+                    vue.authResolved = true;
+                    console.log('authResolved;', vue.authResolved);
+
+                    if (user) {
+                        console.log('User logged in:', user.email);
+                        vue.$set(vue, 'user', user);
+                        console.log('User data set:', vue.user);
+                    
+                        if (!allowedEmails.includes(user.email)) {
+                            alert('許可されていないユーザーです。');
+                            signOut(auth);
+                            vue.user = null;
+                            return;
+                        }
+                        vue.$set(vue, 'user', user);
+                        console.log('User data set:', vue.user);
+
+                        const starCountRef = ref(database, 'board');
+
+                        onValue(starCountRef, (snapshot) => {
+                            vue.$set(vue, 'lists', snapshot.val() || []);
+                        }, (error) => {
+                            alert("データ取得エラー: " + error.message);
+                        });
+                    } else {
+                        vue.$set(vue, 'user', null);
+                        console.log('User loggedd out');
+                    }
+                })
             },
             methods: {
                 doAdd: function (name, message) {
@@ -82,31 +116,49 @@
                     })
                     .then(() => console.log('push succeeded'))
                     .catch(err => console.error('push failed:', err));
+                },
+
+                signInWithGoogle: function () {
+                    const provider = new GoogleAuthProvider();
+                    signInWithPopup(auth, provider)
+                        .then((result) => {
+                            console.log("Logged in with Google:", result.user);
+                        })
+                        .catch((error) => {
+                            console.error("Google login error:", error);
+                        })
                 }
+                
             }
         })
     </script>
 </head>
 <body>
-    <div>
-        <section class="hero is-info" style="margin: 0; padding: 0;">
-            <div class="hero-body is-small" style="padding: 1rem;">
-              <h3 class="is-size-2" style="font-weight: bold;">お知らせ</h3>
-              <p class="is-size-4">・多言語対応する気は<span class="kyouchou">全く</span>ありません</p>
-              <p class="is-size-4">・コメント以外の表示が右に寄ってるのは気のせいです</p>
-              <p class="is-size-4">・気が向いたらコメント入力の枠の高さの自動調節を実装します</p>
-              <a class="button" href="https://docs.google.com/forms/d/e/1FAIpQLSc6cAHVqRwCkcZQVLvIuNlqEyLPDVmtakVz0kvbIeHzbIQMSQ/viewform?usp=dialog">改善案のアンケート</a>
+    <div id="board">
+        <p v-if="!authResolved" class="has-text-grey">認証確認中...</p>
+        <div v-if="!authResolved && !user">
+            <button @click="signInWithGoogle" class="button is-primary">Googleでログイン</button>
+        </div>
+        <div v-if="authResolved && user">
+            <p>ログイン中: {{ user.email }}</p>
+            <p>ユーザー名: {{ user.displayName }}</p>
+            <section class="hero is-info" style="margin: 0; padding: 0;">
+                <div id="board" class="hero-body is-small" style="padding: 1rem;">
+                  <h3 class="is-size-2" style="font-weight: bold;">お知らせ</h3>
+                  <p class="is-size-4">・多言語対応する気は<span class="kyouchou">全く</span>ありません</p>
+                  <p class="is-size-4">・コメント以外の表示が右に寄ってるのは気のせいです</p>
+                  <p class="is-size-4">・気が向いたらコメント入力の枠の高さの自動調節を実装します</p>
+                  <a class="button" href="https://docs.google.com/forms/d/e/1FAIpQLSc6cAHVqRwCkcZQVLvIuNlqEyLPDVmtakVz0kvbIeHzbIQMSQ/viewform?usp=dialog">改善案のアンケート</a>
+                </div>
+            </section>
+            <div>
+                <h1 class="board-title is-size-4 has-text-weight-bold">掲示板</h1>
+                <ul class="lists" style="list-style-type: none">
+                    <board-list v-for="(list, key) in lists" :key="key" :name="list.name" :message="list.message" :date="list.date"></board-list>
+                </ul>
+                <board-form v-on:input="doAdd"></board-form>
             </div>
-          </section>
-          <div id="board">
-        <h1 class="board-title is-size-4 has-text-weight-bold">掲示板</h1>
-        <ul class="lists" style="list-style-type: none">
-            <board-list v-for="(list, key) in lists" :key="key" :name="list.name" :message="list.message"
-                :date="list.date">
-            </board-list>
-        </ul>
-        <board-form v-on:input="doAdd"></board-form>
-    </div>
+        </div>
     </div>
     <script src="index.js"></script>
 </body>
